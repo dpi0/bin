@@ -2,8 +2,7 @@ use actix_web::web::Bytes;
 use linked_hash_map::LinkedHashMap;
 use once_cell::sync::Lazy;
 use parking_lot::RwLock;
-use rand::{distributions::Alphanumeric, thread_rng, Rng};
-use std::cell::RefCell;
+use rand::{distributions::Uniform, thread_rng, Rng};
 
 pub type PasteStore = RwLock<LinkedHashMap<String, Bytes>>;
 
@@ -23,17 +22,16 @@ fn purge_old(entries: &mut LinkedHashMap<String, Bytes>) {
     }
 }
 
-/// Generates a 'pronounceable' random ID using gpw
+/// Generates a random id, avoiding confusable characters
 pub fn generate_id() -> String {
-    thread_local!(static KEYGEN: RefCell<gpw::PasswordGenerator> = RefCell::new(gpw::PasswordGenerator::default()));
-
-    KEYGEN.with(|k| k.borrow_mut().next()).unwrap_or_else(|| {
-        thread_rng()
-            .sample_iter(&Alphanumeric)
-            .take(6)
-            .map(char::from)
-            .collect()
-    })
+    let valid_chars = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ"; // Avoids i, l, and o
+    let chars = valid_chars.chars().collect::<Vec<char>>();
+    let range = Uniform::from(0..valid_chars.len());
+    thread_rng()
+        .sample_iter(range)
+        .take(12)
+        .map(|x| chars[x])
+        .collect()
 }
 
 /// Stores a paste under the given id

@@ -1,5 +1,6 @@
 #![deny(clippy::pedantic)]
 #![allow(clippy::unused_async)]
+#![allow(clippy::missing_errors_doc)]
 
 mod errors;
 mod highlight;
@@ -9,7 +10,7 @@ mod params;
 use crate::{
     errors::{InternalServerError, NotFound},
     highlight::highlight,
-    io::{generate_id, get_paste, store_paste, PasteStore},
+    io::PasteDiskRepository,
     params::{HostHeader, IsPlaintextRequest},
 };
 
@@ -21,11 +22,19 @@ use actix_web::{
 use askama::{Html as AskamaHtml, MarkupDisplay, Template};
 use log::{error, info};
 use once_cell::sync::Lazy;
+use rand::{distributions::Uniform, thread_rng, Rng};
 use std::{
     borrow::Cow,
     net::{IpAddr, Ipv4Addr, SocketAddr},
+    path::Path,
 };
 use syntect::html::{css_for_theme_with_class_style, ClassStyle};
+
+pub trait PasteRepository {
+    fn create(&self, id: &str, content: Bytes) -> Result<(), std::io::Error>;
+    fn read(&self, id: &str) -> Option<Bytes>;
+    fn exists(&self, id: &str) -> bool;
+}
 
 #[derive(argh::FromArgs, Clone)]
 /// a pastebin.
@@ -36,12 +45,24 @@ pub struct BinArgs {
         default = "SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8820)"
     )]
     bind_addr: SocketAddr,
-    /// maximum amount of pastes to store before rotating (default: 1000)
-    #[argh(option, default = "1000")]
-    buffer_size: usize,
     /// maximum paste size in bytes (default. 32kB)
     #[argh(option, default = "32 * 1024")]
     max_paste_size: usize,
+    /// location of paste storage directory
+    #[argh(option, default = "String::from(\"/srv/pastes\")")]
+    paste_dir: String,
+}
+
+/// Generates a random id, avoiding confusable characters
+fn generate_id() -> String {
+    let valid_chars = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ"; // Avoids i, l, and o
+    let chars = valid_chars.chars().collect::<Vec<char>>();
+    let range = Uniform::from(0..valid_chars.len());
+    thread_rng()
+        .sample_iter(range)
+        .take(12)
+        .map(|x| chars[x])
+        .collect()
 }
 
 #[actix_web::main]
@@ -52,24 +73,29 @@ async fn main() -> std::io::Result<()> {
     pretty_env_logger::init();
 
     let args: BinArgs = argh::from_env();
+    let paste_repository = Data::new(PasteDiskRepository {});
 
-    let store = Data::new(PasteStore::default());
+    let path = Path::new(&args.paste_dir);
+    if !path.is_dir() {
+        eprintln!("The paste storage directory does not exist.");
+        std::process::exit(1);
+    }
 
     let server = HttpServer::new({
         let args = args.clone();
 
         move || {
             App::new()
-                .app_data(store.clone())
+                .app_data(paste_repository.clone())
                 .app_data(PayloadConfig::default().limit(args.max_paste_size))
                 .app_data(FormConfig::default().limit(args.max_paste_size))
                 .wrap(actix_web::middleware::Compress::default())
                 .route("/", web::get().to(index))
-                .route("/", web::post().to(submit))
-                .route("/", web::put().to(submit_raw))
+                .route("/", web::post().to(submit::<PasteDiskRepository>))
+                .route("/", web::put().to(submit_raw::<PasteDiskRepository>))
                 .route("/", web::head().to(HttpResponse::MethodNotAllowed))
                 .route("/highlight.css", web::get().to(highlight_css))
-                .route("/{paste}", web::get().to(show_paste))
+                .route("/{paste}", web::get().to(show_paste::<PasteDiskRepository>))
                 .route("/{paste}", web::head().to(HttpResponse::MethodNotAllowed))
                 .default_service(web::to(|req: HttpRequest| async move {
                     error!("Couldn't find resource {}", req.uri());
@@ -96,29 +122,39 @@ struct IndexForm {
     val: Bytes,
 }
 
-async fn submit(input: web::Form<IndexForm>, store: Data<PasteStore>) -> impl Responder {
-    let id = generate_id();
+async fn submit<T: PasteRepository>(
+    input: web::Form<IndexForm>,
+    repository: Data<T>,
+) -> impl Responder {
+    let mut id = generate_id();
+    while repository.exists(&id) {
+        id = generate_id();
+    }
     let uri = format!("/{}", &id);
-    store_paste(&store, id, input.into_inner().val);
+    repository
+        .create(&id, input.into_inner().val)
+        .expect("Failed creating file");
     HttpResponse::Found()
         .append_header((header::LOCATION, uri))
         .finish()
 }
 
-async fn submit_raw(
+async fn submit_raw<T: PasteRepository>(
     data: Bytes,
     host: HostHeader,
-    store: Data<PasteStore>,
+    repository: Data<T>,
 ) -> Result<String, Error> {
-    let id = generate_id();
+    let mut id = generate_id();
+    while repository.exists(&id) {
+        id = generate_id();
+    }
     let uri = if let Some(Ok(host)) = host.0.as_ref().map(|v| std::str::from_utf8(v.as_bytes())) {
-        format!("https://{}/{}", host, id)
+        format!("https://{host}/{id}")
     } else {
-        format!("/{}", id)
+        format!("/{id}")
     };
 
-    store_paste(&store, id, data);
-
+    repository.create(&id, data).expect("Failed creating file");
     Ok(uri)
 }
 
@@ -128,17 +164,17 @@ struct ShowPaste<'a> {
     content: MarkupDisplay<AskamaHtml, Cow<'a, String>>,
 }
 
-async fn show_paste(
+async fn show_paste<T: PasteRepository>(
     req: HttpRequest,
-    key: actix_web::web::Path<String>,
+    key: web::Path<String>,
     plaintext: IsPlaintextRequest,
-    store: Data<PasteStore>,
+    repository: Data<T>,
 ) -> Result<HttpResponse, Error> {
     let mut splitter = key.splitn(2, '.');
     let key = splitter.next().unwrap();
     let ext = splitter.next();
 
-    let entry = get_paste(&store, key).ok_or(NotFound)?;
+    let entry = repository.read(key).ok_or(NotFound)?;
 
     if *plaintext {
         Ok(HttpResponse::Ok()

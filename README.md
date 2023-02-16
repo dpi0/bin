@@ -1,60 +1,16 @@
 # bin
 a paste bin.
 
-A paste bin that's actually minimalist. No database requirement, no commenting functionality, no self-destructing or time bomb messages and no social media integration—just an application to quickly send snippets of text to people.
+This is a fork of [w4](https://github.com/w4/)'s [bin](https://github.com/w4/bin) project.  
+The fork changes 2 aspects of the original:
 
-[bin](https://bin.gy/) is written in Rust in around 300 lines of code. It's fast, it's simple, there's code highlighting and you can ⌘+A without going to the 'plain' page. It's revolutionary in the paste bin industry, disrupting markets and pushing boundaries never seen before.
+##### 1. Paste IDs
+This version of bin uses a 12 character long randomly generated string of upper or lower case letters. The letters I, L and O are excluded from IDs since they are easily confused for other symbols. This is simply for my own preference, I like the look of the URLs better this way.
 
-##### so how do you get bin?
+##### 2. Paste storage
+This version saves pastes to disk, in order for them to persist even if the service restarts. The `--paste-dir` argument can be used to define the directory in which the pastes are stored. In the provided docker image the directory `/srv/pastes` is used, and should probably be volume mounted to true persistence. Note that the user that runs bin now has the user ID `1000`, so that it is easy to give correct ownership to the mounted directory.
 
-Download the latest version from the [releases](https://github.com/w4/bin/releases) page, extract it and run the `./bin` executable. You can also compile it from source using Cargo if you swing that way:
+Since pastes now save to disk, the `--buffer-size` argument has been removed. If you still want to remove old pastes as new pastes are created, use a cron job or similar to purge old files.
 
-```bash
-# nix-shell provides an environment with rust/cargo installed
-$ nix-shell
 
-[nix-shell:~/Code/bin]$ cargo build --release
-   Compiling bin v1.0.0 (/Users/jordanjd/Code/bin)
-    Finished release [optimized] target(s) in 3.61s
-
-[nix-shell:~/Code/bin]$ ./target/release/bin
-    ...
-```
-
-##### how do you run it?
-
-```bash
-$ ./bin
-```
-
-##### funny, what settings are there?
-
-```
-$ ./bin
-
-Usage: bin [<bind_addr>] [--buffer-size <buffer-size>] [--max-paste-size <max-paste-size>]
-
-a pastebin.
-
-Positional Arguments:
-  bind_addr         socket address to bind to (default: 127.0.0.1:8820)
-
-Options:
-  --buffer-size     maximum amount of pastes to store before rotating (default:
-                    1000)
-  --max-paste-size  maximum paste size in bytes (default. 32kB)
-  --help            display usage information
-```
-
-##### is there curl support?
-
-```bash
-$ curl -X PUT --data 'hello world' https://bin.gy
-https://bin.gy/cateettary
-$ curl https://bin.gy/cateettary
-hello world
-```
-
-##### how does syntax highlighting work?
-
-To get syntax highlighting you need to add the file extension at the end of your paste URL.
+For more information, see [w4](https://github.com/w4/)'s [repository](https://github.com/w4/bin).

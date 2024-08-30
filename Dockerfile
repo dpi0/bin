@@ -1,18 +1,34 @@
-FROM rust:1-slim AS builder
+# Build stage
+FROM rust:1-alpine AS builder
 
-RUN apt update && apt install -y libclang-dev
+RUN apk add --no-cache musl-dev
 
-COPY . /sources
-WORKDIR /sources
+WORKDIR /build
+
+COPY . .
+
 RUN cargo build --release
-RUN chown nobody:nogroup /sources/target/release/bin
 
+RUN chown nobody:nogroup /build/target/release/bin
 
-FROM debian:bullseye-slim
-COPY --from=builder /sources/target/release/bin /pastebin
+# Set ownership and create the pastes directory with correct permissions
+RUN mkdir -p /build/pastes \
+  && chown nobody:nogroup /build/pastes
 
-RUN mkdir /srv/pastes
-RUN chown 1000:1000 /srv/pastes
-USER 1000
+# Run stage
+FROM scratch
+
+WORKDIR /app
+
+COPY --from=builder /build/target/release/bin ./bin
+
+COPY --from=builder /etc/passwd /etc/passwd
+
+# Copy the pastes directory with the correct permissions
+COPY --from=builder --chown=nobody:nogroup /build/pastes ./pastes
+
+USER nobody
+
 EXPOSE 8000
-ENTRYPOINT ["/pastebin", "0.0.0.0:8000", "--paste-dir", "/srv/pastes"]
+
+ENTRYPOINT ["./bin", "0.0.0.0:8000", "--paste-dir", "/app/pastes"]

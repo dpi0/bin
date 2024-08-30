@@ -9,25 +9,20 @@ COPY . .
 
 RUN cargo build --release
 
-RUN chown nobody:nogroup /build/target/release/bin
-
-# Set ownership and create the pastes directory with correct permissions
-RUN mkdir -p /build/pastes \
-  && chown nobody:nogroup /build/pastes
-
 # Run stage
-FROM scratch
+FROM alpine:latest
 
 WORKDIR /app
 
 COPY --from=builder /build/target/release/bin ./bin
 
-COPY --from=builder /etc/passwd /etc/passwd
+COPY --from=builder /build/pastes ./pastes
 
-# Copy the pastes directory with the correct permissions
-COPY --from=builder --chown=nobody:nogroup /build/pastes ./pastes
+RUN mkdir -p ./pastes
 
-USER nobody
+RUN chown -R 1000:1000 ./pastes
+
+USER 1000
 
 EXPOSE 8000
 

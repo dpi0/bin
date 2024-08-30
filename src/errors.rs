@@ -30,7 +30,7 @@ pub struct NotFound;
 impl_response_error_for_http_resp!(NotFound, "../templates/404.html", StatusCode::NOT_FOUND);
 
 #[derive(Debug)]
-pub struct InternalServerError(pub Box<dyn std::error::Error>);
+pub struct InternalServerError;
 
 impl_response_error_for_http_resp!(
     InternalServerError,

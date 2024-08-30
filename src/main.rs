@@ -223,7 +223,7 @@ fn render_template<T: Template>(req: &HttpRequest, template: &T) -> Result<HttpR
         Ok(html) => Ok(HttpResponse::Ok().content_type("text/html").body(html)),
         Err(e) => {
             error!("Error while rendering template for {}: {}", req.uri(), e);
-            Err(InternalServerError(Box::new(e)).into())
+            Err(InternalServerError.into())
         }
     }
 }

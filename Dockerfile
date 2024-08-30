@@ -16,8 +16,6 @@ WORKDIR /app
 
 COPY --from=builder /build/target/release/bin ./bin
 
-COPY --from=builder /build/pastes ./pastes
-
 RUN mkdir -p ./pastes
 
 RUN chown -R 1000:1000 ./pastes

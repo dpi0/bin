@@ -60,7 +60,7 @@ fn generate_id() -> String {
     let range = Uniform::from(0..valid_chars.len());
     thread_rng()
         .sample_iter(range)
-        .take(12)
+        .take(4)
         .map(|x| chars[x])
         .collect()
 }
@@ -207,7 +207,7 @@ async fn highlight_css() -> HttpResponse {
     static CSS: Lazy<Bytes> = Lazy::new(|| {
         highlight::BAT_ASSETS.with(|s| {
             Bytes::from(css_for_theme_with_class_style(
-                s.get_theme("OneHalfDark"),
+                s.get_theme("Monokai Extended"),
                 ClassStyle::Spaced,
             ))
         })

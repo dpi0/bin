@@ -60,7 +60,7 @@ fn generate_id() -> String {
     let range = Uniform::from(0..valid_chars.len());
     thread_rng()
         .sample_iter(range)
-        .take(4)
+        .take(6)
         .map(|x| chars[x])
         .collect()
 }

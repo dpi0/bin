@@ -5,20 +5,50 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>bin.</title>
     <link rel="help" href="https://github.com/dpi0/bin" />
+    <link rel="icon" href="/favicon.ico" type="image/x-icon" />
     <style>
+      :root {
+          --bg: #fff;
+          --text: #000000;
+          --accent: #0550ff;
+          --placeholder-text: var(--accent);
+      }
+
+      @media (prefers-color-scheme: dark) {
+          :root {
+            --bg: #121212;
+            --text: #ebebeb;
+            --accent: #00ccff;
+            --placeholder-text: var(--accent);
+          }
+      }
+
       * { box-sizing: border-box; }
+
       html, body { margin: 0; }
+
       body {
           height: 100vh;
           padding: 1rem;
-          background: #121212;
-          color: #eee;
           line-height: 1.5;
           display: flex;
+          background-color: var(--bg);
+          color: var(--text);
       }
+
       body, code, textarea { font-family: monospace; }
+
       code {
         display: block;
+      }
+
+      textarea::placeholder {
+          color: var(--placeholder-text);
+      }
+
+      ::selection {
+          background-color: var(--accent);
+          color: var(--bg);
       }
       {% block styles %}{% endblock styles %}
     </style>

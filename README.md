@@ -1,16 +1,56 @@
 # bin
 a paste bin.
 
-This is a fork of [w4](https://github.com/w4/)'s [bin](https://github.com/w4/bin) project.  
-The fork changes 2 aspects of the original:
+This is a fork of [Travus](https://github.com/Travus/)'s [bin](https://github.com/Travus/bin) project, which itself is a fork of [w4](https://github.com/w4/)'s [bin](https://github.com/w4/bin)
+
+This fork changes 2 aspects of the Travus's bin:
 
 ##### 1. Paste IDs
-This version of bin uses a 12 character long randomly generated string of upper or lower case letters. The letters I, L and O are excluded from IDs since they are easily confused for other symbols. This is simply for my own preference, I like the look of the URLs better this way.
+This version of bin uses a 6 character long randomly generated string of upper or lower case letters.
 
-##### 2. Paste storage
-This version saves pastes to disk, in order for them to persist even if the service restarts. The `--paste-dir` argument can be used to define the directory in which the pastes are stored. In the provided docker image the directory `/srv/pastes` is used, and should probably be volume mounted to true persistence. Note that the user that runs bin now has the user ID `1000`, so that it is easy to give correct ownership to the mounted directory.
+##### 2. Custom styles
+Has auto dark/light mode, updated padding, color scheme and better icons.
 
-Since pastes now save to disk, the `--buffer-size` argument has been removed. If you still want to remove old pastes as new pastes are created, use a cron job or similar to purge old files.
+## Self Hosting
+
+Easiest way is to use `docker compose`
+
+```yml
+services:
+  app:
+    image: ghcr.io/dpi0/bin:main
+    container_name: bin
+    ports:
+      - "8000:8000"
+    volumes:
+      - pastes:/app/pastes
+    user: 1000:1000
+
+volumes:
+  pastes:
+```
+
+#### Using Bind Mounts
+
+If you prefer using bind mounts, create the `pastes` directory manually first, ensuring it has the correct `UID:GID` of the user:
+
+```bash
+mkdir -p /path/to/your/pastes
+```
+
+and then 
+
+```yml
+services:
+  app:
+    image: ghcr.io/dpi0/bin:main
+    container_name: bin
+    ports:
+      - "8000:8000"
+    volumes:
+      - /path/to/your/pastes:/app/pastes
+    user: 1000:1000
+```
 
 
-For more information, see [w4](https://github.com/w4/)'s [repository](https://github.com/w4/bin).
+For more information, see [Travus](https://github.com/Travus/)'s [repository](https://github.com/Travus/bin).

@@ -45,8 +45,8 @@ pub struct BinArgs {
         default = "SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8820)"
     )]
     bind_addr: SocketAddr,
-    /// maximum paste size in bytes (default. 32kB)
-    #[argh(option, default = "32 * 1024")]
+    /// maximum paste size in bytes (default. 256kB, increased from 32kB)
+    #[argh(option, default = "256 * 1024")]
     max_paste_size: usize,
     /// location of paste storage directory
     #[argh(option, default = "String::from(\"/srv/pastes\")")]
